@@ -2,20 +2,20 @@ from dataclasses import dataclass
 from abc import abstractmethod
 from os import urandom
 
-from ecc.math_utils.mod_inverse import modinv
 from ecc.math_utils.mod_sqrt import modsqrt
 from ecc.utils import int_length_in_byte
 
+from gmpy2 import mpz, divm
 
 @dataclass
 class Curve:
     name: str
-    a: int
-    b: int
-    p: int
-    n: int
-    gx: int
-    gy: int
+    a: mpz
+    b: mpz
+    p: mpz
+    n: mpz
+    gx: mpz
+    gy: mpz
 
     def __repr__(self):
         return self.name
@@ -84,7 +84,7 @@ class ShortWeierstrassCurve(Curve):
         delta_x = p.x - q.x
         delta_y = p.y - q.y
         try:
-            s = delta_y * modinv(delta_x, self.p)
+            s = divm(delta_y, delta_x, self.p)
             res_x = (s * s - p.x - q.x) % self.p
             res_y = (p.y + s * (res_x - p.x)) % self.p
             return - Point(res_x, res_y, self)
@@ -93,7 +93,7 @@ class ShortWeierstrassCurve(Curve):
 
     def _double_point(self, p):
         try:
-            s = (3 * p.x * p.x + self.a) * modinv(2 * p.y, self.p)
+            s = divm(3 * p.x * p.x + self.a, 2 * p.y, self.p)
             res_x = (s * s - 2 * p.x) % self.p
             res_y = (p.y + s * (res_x - p.x)) % self.p
             return - Point(res_x, res_y, self)
@@ -119,8 +119,7 @@ class MontgomeryCurve(Curve):
 
     def compute_y(self, x):
         right = (x * x * x + self.a * x * x + x) % self.p
-        inv_b = modinv(self.b, self.p)
-        right = (right * inv_b) % self.p
+        right = divm(right, self.b, self.p)
         y = modsqrt(right, self.p)
         return y
 
@@ -128,7 +127,7 @@ class MontgomeryCurve(Curve):
         delta_x = p.x - q.x
         delta_y = p.y - q.y
         try:
-            s = delta_y * modinv(delta_x, self.p)
+            s = divm(delta_y, delta_x, self.p)
             res_x = (self.b * s * s - self.a - p.x - q.x) % self.p
             res_y = (p.y + s * (res_x - p.x)) % self.p
             return - Point(res_x, res_y, self)
@@ -139,7 +138,7 @@ class MontgomeryCurve(Curve):
         up = 3 * p.x * p.x + 2 * self.a * p.x + 1
         down = 2 * self.b * p.y
         try:
-            s = up * modinv(down, self.p)
+            s = divm(up, down, self.p)
             res_x = (self.b * s * s - self.a - 2 * p.x) % self.p
             res_y = (p.y + s * (res_x - p.x)) % self.p
             return - Point(res_x, res_y, self)
@@ -148,8 +147,8 @@ class MontgomeryCurve(Curve):
 
 @dataclass
 class Point:
-    x: int
-    y: int
+    x: mpz
+    y: mpz
     curve: Curve
 
     def __post_init__(self):
@@ -196,40 +195,40 @@ class Point:
 
 P256 = ShortWeierstrassCurve(
     'P256',
-    -3,
-    41058363725152142129326129780047268409114441015993725554835256314039467401291,
-    115792089210356248762697446949407573530086143415290314195533631308867097853951,
-    115792089210356248762697446949407573529996955224135760342422259061068512044369,
-    48439561293906451759052585252797914202762949526041747995844080717082404635286,
-    36134250956749795798585127919587881956611106672985015071877198253568414405109
+    mpz(-3),
+    mpz(41058363725152142129326129780047268409114441015993725554835256314039467401291),
+    mpz(115792089210356248762697446949407573530086143415290314195533631308867097853951),
+    mpz(115792089210356248762697446949407573529996955224135760342422259061068512044369),
+    mpz(48439561293906451759052585252797914202762949526041747995844080717082404635286),
+    mpz(36134250956749795798585127919587881956611106672985015071877198253568414405109)
 )
 
 secp256k1 = ShortWeierstrassCurve(
     'secp256k1',
-    0x0,
-    0x7,
-    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
-    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141,
-    0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
-    0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8
+    mpz(0x0),
+    mpz(0x7),
+    mpz(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F),
+    mpz(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141),
+    mpz(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798),
+    mpz(0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8)
 )
 
 Curve25519 = MontgomeryCurve(
     name='Curve25519',
-    a=486662,
-    b=1,
-    p=0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffed,
-    n=0x1000000000000000000000000000000014DEF9DEA2F79CD65812631A5CF5D3ED,
-    gx=0x9,
-    gy=0x20ae19a1b8a086b4e01edd2c7748d14c923d4d7e6d7c61b229e9c5a27eced3d9
+    a=mpz(486662),
+    b=mpz(1),
+    p=mpz(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffed),
+    n=mpz(0x1000000000000000000000000000000014DEF9DEA2F79CD65812631A5CF5D3ED),
+    gx=mpz(0x9),
+    gy=mpz(0x20ae19a1b8a086b4e01edd2c7748d14c923d4d7e6d7c61b229e9c5a27eced3d9)
 )
 
 M383 = MontgomeryCurve(
     name='M383',
-    a=2065150,
-    b=1,
-    p=0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff45,
-    n=0x10000000000000000000000000000000000000000000000006c79673ac36ba6e7a32576f7b1b249e46bbc225be9071d7,
-    gx=0xc,
-    gy=0x1ec7ed04aaf834af310e304b2da0f328e7c165f0e8988abd3992861290f617aa1f1b2e7d0b6e332e969991b62555e77e
+    a=mpz(2065150),
+    b=mpz(1),
+    p=mpz(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff45),
+    n=mpz(0x10000000000000000000000000000000000000000000000006c79673ac36ba6e7a32576f7b1b249e46bbc225be9071d7),
+    gx=mpz(0xc),
+    gy=mpz(0x1ec7ed04aaf834af310e304b2da0f328e7c165f0e8988abd3992861290f617aa1f1b2e7d0b6e332e969991b62555e77e)
 )
