@@ -83,16 +83,22 @@ class ShortWeierstrassCurve(Curve):
     def _add_point(self, p, q):
         delta_x = p.x - q.x
         delta_y = p.y - q.y
-        s = delta_y * modinv(delta_x, self.p)
-        res_x = (s * s - p.x - q.x) % self.p
-        res_y = (p.y + s * (res_x - p.x)) % self.p
-        return - Point(res_x, res_y, self)
+        try:
+            s = delta_y * modinv(delta_x, self.p)
+            res_x = (s * s - p.x - q.x) % self.p
+            res_y = (p.y + s * (res_x - p.x)) % self.p
+            return - Point(res_x, res_y, self)
+        except Exception:
+            return None
 
     def _double_point(self, p):
-        s = (3 * p.x * p.x + self.a) * modinv(2 * p.y, self.p)
-        res_x = (s * s - 2 * p.x) % self.p
-        res_y = (p.y + s * (res_x - p.x)) % self.p
-        return - Point(res_x, res_y, self)
+        try:
+            s = (3 * p.x * p.x + self.a) * modinv(2 * p.y, self.p)
+            res_x = (s * s - 2 * p.x) % self.p
+            res_y = (p.y + s * (res_x - p.x)) % self.p
+            return - Point(res_x, res_y, self)
+        except Exception:
+            return None
 
     def compute_y(self, x):
         right = (x * x * x + self.a * x + self.b) % self.p
@@ -121,19 +127,24 @@ class MontgomeryCurve(Curve):
     def _add_point(self, p, q):
         delta_x = p.x - q.x
         delta_y = p.y - q.y
-        s = delta_y * modinv(delta_x, self.p)
-        res_x = (self.b * s * s - self.a - p.x - q.x) % self.p
-        res_y = (p.y + s * (res_x - p.x)) % self.p
-        return - Point(res_x, res_y, self)
+        try:
+            s = delta_y * modinv(delta_x, self.p)
+            res_x = (self.b * s * s - self.a - p.x - q.x) % self.p
+            res_y = (p.y + s * (res_x - p.x)) % self.p
+            return - Point(res_x, res_y, self)
+        except Exception:
+            return None
 
     def _double_point(self, p):
         up = 3 * p.x * p.x + 2 * self.a * p.x + 1
         down = 2 * self.b * p.y
-        s = up * modinv(down, self.p)
-        res_x = (self.b * s * s - self.a - 2 * p.x) % self.p
-        res_y = (p.y + s * (res_x - p.x)) % self.p
-        return - Point(res_x, res_y, self)
-
+        try:
+            s = up * modinv(down, self.p)
+            res_x = (self.b * s * s - self.a - 2 * p.x) % self.p
+            res_y = (p.y + s * (res_x - p.x)) % self.p
+            return - Point(res_x, res_y, self)
+        except Exception:
+            return None
 
 @dataclass
 class Point:
@@ -161,6 +172,8 @@ class Point:
         return Point(self.x, -self.y % self.curve.p, self.curve)
 
     def __add__(self, other):
+        if other is None:
+            return self
         if self == other:
             return self.curve._double_point(other)
         return self.curve._add_point(self, other)
@@ -169,6 +182,8 @@ class Point:
         return self.__add__(other)
 
     def __sub__(self, other):
+        if other is None:
+            return self
         negative = - other
         return self.__add__(negative)
 
